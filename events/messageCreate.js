@@ -4,13 +4,13 @@ const mysql = require('mysql');
 const { setTimeout } = require("timers/promises");
 const Grapheme = require('grapheme-splitter');
 
-const { MINDSDB_USERNAME, MINDSDB_PASSWORD } = require('../config.json');
+const { MINDSDB_USERNAME, MINDSDB_PASSWORD, MINDSDB_MODEL } = require('../config.json');
 
 module.exports = {
 	name: Events.MessageCreate,
 	async execute(message,client) {
 
-        let parsedMessage = message.content.replace(/<@(.*?)>/,"").substring(1)
+        let parsedMessage = message.content.replace(/<@(.*?)>/,"");
         let botResponse = '';
         let chatlog = '';
         let textModifier = '';
@@ -57,9 +57,9 @@ module.exports = {
         function constructQuery(){
 
             query = 
-            `SELECT response from mindsdb.astolfo_model
+            `SELECT response from ${MINDSDB_MODEL}
             WHERE chatlog = "${chatlog}"
-            AND author_username = "${mysql.escape(message.author.username)}"
+            AND author_username = "@${mysql.escape(message.author.username)}"
             AND text="${mysql.escape(parsedMessage)} ${mysql.escape(textModifier)}"`;
             query = query.replace(/'/g, '');
 
@@ -88,25 +88,29 @@ module.exports = {
 
             await message.channel.sendTyping();
 
-            await message.channel.messages.fetch({ limit: 4 }).then(messages => {
-
-                messages = Array.from(messages);
-                messages.shift().reverse();
-                messages = new Map([...messages].reverse());
-                messages.forEach(message => chatlog = chatlog.concat('<' + message.author.username + '>: ' + message.cleanContent) +' ')
-                                    
-                })
-                .catch(console.error);
-
             if (isMostlyEmojis(parsedMessage)){
                 textModifier = '(respond back with only emojis)';
-                chatlog = '';
+            }
+            else if (parsedMessage.includes("?")){
+                await message.channel.messages.fetch({ limit: 4 }).then(messages => {
+
+                    messages = Array.from(messages);
+                    messages.shift().reverse();
+                    messages = new Map([...messages].reverse());
+                    messages.forEach(message => chatlog = chatlog.concat('<' + message.author.username + '>: ' + message.cleanContent) +' ')
+                                        
+                    })
+                    .catch(console.error);
             }
 
             constructQuery();
             
             console.log(query);
             await attemptQuery();
+            
+            if (botResponse.includes('@')){
+                botResponse = botResponse.replace('@' + message.author.username,message.author);
+            }
             message.reply(botResponse);
             
             function isMostlyEmojis(str) {
@@ -126,7 +130,6 @@ module.exports = {
             message.react(botResponse);
             
         }
-
 
 	},
 };

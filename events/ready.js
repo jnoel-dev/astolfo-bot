@@ -3,7 +3,7 @@ module.exports = {
 	name: Events.ClientReady,
 	once: true,
 	execute(client) {
-		client.user.setActivity('Over the server.', { type: ActivityType.Watching });
+		client.user.setActivity('over the server.', { type: ActivityType.Watching });
 		console.log(`Ready! Logged in as ${client.user.tag}`);
 	},
 };
