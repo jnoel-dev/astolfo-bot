@@ -1,10 +1,9 @@
 const { Events } = require('discord.js');
 const MindsDB = require('mindsdb-js-sdk');
-const mysql = require('mysql');
 const { setTimeout } = require("timers/promises");
 const Grapheme = require('grapheme-splitter');
 
-const { MINDSDB_USERNAME, MINDSDB_PASSWORD, MINDSDB_MODEL } = require('../config.json');
+const { MINDSDB_USERNAME, MINDSDB_PASSWORD, MINDSDB_MODEL, CONTEXT_DEPTH } = require('../config.json');
 
 module.exports = {
 	name: Events.MessageCreate,
@@ -16,7 +15,7 @@ module.exports = {
         let textModifier = '';
         let query = '';
 
-        await message.channel.messages.fetch({ limit: 4 }).then(messages => {
+        await message.channel.messages.fetch({ limit: CONTEXT_DEPTH }).then(messages => {
 
             messages = Array.from(messages);
             messages = new Map([...messages].reverse());
