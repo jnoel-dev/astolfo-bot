@@ -16,6 +16,60 @@ module.exports = {
         let textModifier = '';
         let query = '';
 
+        await message.channel.messages.fetch({ limit: 4 }).then(messages => {
+
+            messages = Array.from(messages);
+            messages = new Map([...messages].reverse());
+            messages.forEach(message => chatlog = chatlog.concat(message.author.username + ':' + message.cleanContent +'\n'))
+                                
+            })
+            .catch(console.error);
+
+        if (message.author.bot) return false;
+
+        if (message.content.includes("@here") || message.content.includes("@everyone")) return false;
+
+        if (message.mentions.has(client.user.id) || getRandom(200)) {
+
+            await message.channel.sendTyping();
+
+            if (isMostlyEmojis(parsedMessage)){
+                chatlog = message.cleanContent;
+                textModifier = '(respond back with only emojis)';
+            }
+            else if (parsedMessage.includes("?")){
+
+            }
+
+            constructQuery();
+            
+            
+            await attemptQuery();
+            
+            if (botResponse.includes('@')){
+                botResponse = botResponse.replace('@' + message.author.username,message.author);
+            }
+            message.reply(botResponse);
+             
+        }
+        else if (getRandom(15)){
+
+            chatlog = message.cleanContent;
+            textModifier = '(respond back with a single emoji only)';
+            constructQuery();
+            await attemptQuery();
+            message.react(botResponse);
+            
+        }
+
+        function isMostlyEmojis(str) {
+            const emojiRegex = /\p{Extended_Pictographic}/ug;
+            const emojis = str.match(emojiRegex) || [];
+            let splitter = new Grapheme();
+            let test = emojis.length / splitter.splitGraphemes(str).length >= 0.5;
+            return test;
+        }
+
         async function mindsDBConnect(){
             try {
                 await MindsDB.default.connect({
@@ -31,7 +85,7 @@ module.exports = {
         }
 
         async function attemptQuery(){
-
+            console.log(query);
             try {
                 await message.channel.sendTyping();
                 const queryResult = await MindsDB.default.SQL.runQuery(query);
@@ -58,9 +112,7 @@ module.exports = {
 
             query = 
             `SELECT response from ${MINDSDB_MODEL}
-            WHERE chatlog = "${chatlog}"
-            AND author_username = "@${mysql.escape(message.author.username)}"
-            AND text="${mysql.escape(parsedMessage)} ${mysql.escape(textModifier)}"`;
+            WHERE chatlog = "${chatlog} + ${textModifier}"`;
             query = query.replace(/'/g, '');
 
         }
@@ -80,57 +132,5 @@ module.exports = {
             return;
         }
 
-        if (message.author.bot) return false;
-
-        if (message.content.includes("@here") || message.content.includes("@everyone")) return false;
-
-        if (message.mentions.has(client.user.id) || getRandom(200)) {
-
-            await message.channel.sendTyping();
-
-            if (isMostlyEmojis(parsedMessage)){
-                textModifier = '(respond back with only emojis)';
-            }
-            else if (parsedMessage.includes("?")){
-                await message.channel.messages.fetch({ limit: 4 }).then(messages => {
-
-                    messages = Array.from(messages);
-                    messages.shift().reverse();
-                    messages = new Map([...messages].reverse());
-                    messages.forEach(message => chatlog = chatlog.concat('<' + message.author.username + '>: ' + message.cleanContent) +' ')
-                                        
-                    })
-                    .catch(console.error);
-            }
-
-            constructQuery();
-            
-            console.log(query);
-            await attemptQuery();
-            
-            if (botResponse.includes('@')){
-                botResponse = botResponse.replace('@' + message.author.username,message.author);
-            }
-            message.reply(botResponse);
-            
-            function isMostlyEmojis(str) {
-                const emojiRegex = /\p{Extended_Pictographic}/ug;
-                const emojis = str.match(emojiRegex) || [];
-                let splitter = new Grapheme();
-                let test = emojis.length / splitter.splitGraphemes(str).length >= 0.5;
-                return test;
-            }
-             
-        }
-        else if (getRandom(15)){
-         
-            textModifier = '(respond back with a single emoji only)';
-            constructQuery();
-            await attemptQuery();
-            message.react(botResponse);
-            
-        }
-
 	},
 };
-
