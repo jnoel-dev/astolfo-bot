@@ -4,7 +4,7 @@
     "discord.js": "^14.9.0",
     "grapheme-splitter": "^1.0.4",
     "mindsdb-js-sdk": "^2.2.0",
-    "mysql": "^2.18.1",
-    "node-fetch": "^2.6.9"
+    "node-fetch": "^2.6.9",
+    "openai": "^3.2.1"
   }
 }

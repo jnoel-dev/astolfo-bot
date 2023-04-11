@@ -2,8 +2,9 @@ const { Events } = require('discord.js');
 const MindsDB = require('mindsdb-js-sdk');
 const { setTimeout } = require("timers/promises");
 const Grapheme = require('grapheme-splitter');
+const { Configuration, OpenAIApi } = require("openai");
 
-const { MINDSDB_USERNAME, MINDSDB_PASSWORD, MINDSDB_MODEL, CONTEXT_DEPTH } = require('../config.json');
+const { MINDSDB_USERNAME, MINDSDB_PASSWORD, MINDSDB_MODEL, CONTEXT_DEPTH, OPENAI_API_KEY } = require('../config.json');
 
 module.exports = {
 	name: Events.MessageCreate,
@@ -30,14 +31,17 @@ module.exports = {
 
         if (message.mentions.has(client.user.id) || getRandom(200)) {
 
+            
+            const configuration = new Configuration({
+            apiKey: OPENAI_API_KEY,
+            });
+            const openai = new OpenAIApi(configuration);
+
             await message.channel.sendTyping();
 
             if (isMostlyEmojis(parsedMessage)){
                 chatlog = message.cleanContent;
-                textModifier = '(respond back with only emojis)';
-            }
-            else if (parsedMessage.includes("?")){
-
+                textModifier = '(respond back with only relevant emojis)';
             }
 
             constructQuery();
@@ -45,9 +49,20 @@ module.exports = {
             
             await attemptQuery();
             
-            if (botResponse.includes('@')){
+            if (botResponse.includes('###DALL-E###')){
+
+                
+                const response = await openai.createImage({
+                    prompt: message.cleanContent.replace('@Astolfo','').replace('@',''),
+                    n: 1,
+                    size: "512x512",
+                  });
+                  botResponse = response.data.data[0].url;
+            }
+            else if (botResponse.includes('@')){
                 botResponse = botResponse.replace('@' + message.author.username,message.author);
             }
+
             message.reply(botResponse);
              
         }
