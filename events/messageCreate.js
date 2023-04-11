@@ -125,7 +125,7 @@ module.exports = {
 
                 else if (queryResult.error_message.includes("NoneType")){
                     client.user.setStatus('dnd')
-                    await setTimeout(5000);
+                    await setTimeout(6000);
                     client.user.setStatus('online')
                     await attemptQuery();
                 }
