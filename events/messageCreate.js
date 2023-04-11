@@ -81,7 +81,7 @@ module.exports = {
             message.reply(botResponse);
              
         }
-        else if (getRandom(15)){
+        else if (getRandom(25)){
 
             chatlog = message.cleanContent;
             textModifier = '(respond back with a single emoji only)';
