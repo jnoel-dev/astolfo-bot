@@ -8,9 +8,7 @@ const { MINDSDB_USERNAME, MINDSDB_PASSWORD, MINDSDB_MODEL, CONTEXT_DEPTH, OPENAI
 
 module.exports = {
 	name: Events.MessageCreate,
-    cooldown: false,
 	async execute(message,client) {
-
         let parsedMessage = message.content.replace(/<@(.*?)>/,"");
         let botResponse = '';
         let chatlog = '';
@@ -45,8 +43,6 @@ module.exports = {
         if (message.content.includes("@here") || message.content.includes("@everyone")) return false;
 
         if (message.mentions.has(client.user.id) || getRandom(200)) {
-
-            this.cooldown = true
             
             const configuration = new Configuration({
             apiKey: OPENAI_API_KEY,
@@ -141,7 +137,7 @@ module.exports = {
 
             query = 
             `SELECT response from ${MINDSDB_MODEL}
-            WHERE chatlog = "${chatlog} + ${textModifier}"`;
+            WHERE chatlog = "${chatlog} ${textModifier}"`;
             query = query.replace(/'/g, '');
 
         }
