@@ -78,6 +78,10 @@ module.exports = {
                 textModifier = '(respond back with only relevant emojis)';
             }
 
+            if(getRandom(200)){
+
+            }
+
             constructQuery();
             
             await attemptQuery(true);
@@ -100,13 +104,15 @@ module.exports = {
             if (botResponse.includes('@')){
 
                 let mentionedUsers = botResponse.match(/(@[^\s!]+)/g);
+                let mentionedUsersClean = botResponse.match(/(@[^\s!]+)/g);
                 for (user in mentionedUsers){
                     mentionedUsers[user] = mentionedUsers[user].substring(1,mentionedUsers[user].length-1);
+                    mentionedUsersClean[user] = mentionedUsersClean[user].replace('@','');
                     let userCache = Array.from(message.client.users.cache);
                     for (index in userCache){
                         if(userCache[index][1].username.includes(mentionedUsers[user])){
 
-                            botResponse = botResponse.replace(`@${mentionedUsers[user]}`,`<@${userCache[index][1].id}>`);
+                            botResponse = botResponse.replace(`@${mentionedUsersClean[user]}`,`<@${userCache[index][1].id}>`);
                         }
                         
                     }
@@ -114,6 +120,7 @@ module.exports = {
 
             }
 
+            console.log(botResponse);
             message.reply(botResponse);
              
         }
@@ -123,6 +130,7 @@ module.exports = {
             textModifier = '(respond back with a single emoji only)';
             constructQuery();
             await attemptQuery(false);
+            console.log(botResponse);
             message.react(botResponse);
             
         }
