@@ -15,6 +15,9 @@ module.exports = {
         let textModifier = '';
         let query = '';
 
+        if (message.cleanContent.includes('God')){
+            message.channel.send("*god");
+        }
         await message.channel.messages.fetch({ limit: CONTEXT_DEPTH }).then(messages => {
 
             messages = Array.from(messages);
