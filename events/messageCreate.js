@@ -8,6 +8,7 @@ const { MINDSDB_USERNAME, MINDSDB_PASSWORD, MINDSDB_MODEL, CONTEXT_DEPTH, OPENAI
 
 module.exports = {
 	name: Events.MessageCreate,
+    cooldown: false,
 	async execute(message,client) {
 
         let parsedMessage = message.content.replace(/<@(.*?)>/,"");
@@ -20,7 +21,21 @@ module.exports = {
 
             messages = Array.from(messages);
             messages = new Map([...messages].reverse());
-            messages.forEach(message => chatlog = chatlog.concat(message.author.username + ':' + message.cleanContent +'\n'))
+            
+            let attachmentUrl = '';
+
+            for (let [key, value] of messages){
+                
+                if (value.attachments.size > 0){
+                    let test = value.attachments.entries().next().value[1].url;
+                    if (value.attachments.entries().next().value[1].url != null){
+                        attachmentUrl = value.attachments.entries().next().value[1].url
+                    }
+                }
+
+                chatlog = chatlog.concat(`${value.author.username}:${value.cleanContent} ${attachmentUrl}\n`);
+
+            }
                                 
             })
             .catch(console.error);
@@ -31,6 +46,7 @@ module.exports = {
 
         if (message.mentions.has(client.user.id) || getRandom(200)) {
 
+            this.cooldown = true
             
             const configuration = new Configuration({
             apiKey: OPENAI_API_KEY,
@@ -45,7 +61,6 @@ module.exports = {
             }
 
             constructQuery();
-            
             
             await attemptQuery();
             
@@ -62,6 +77,7 @@ module.exports = {
             else if (botResponse.includes('@')){
                 botResponse = botResponse.replace('@' + message.author.username,message.author);
             }
+
 
             message.reply(botResponse);
              
@@ -115,7 +131,6 @@ module.exports = {
                     await attemptQuery();
                 }
                 
-
                 } catch (error) {
                 mindsDBConnect();
                 }
