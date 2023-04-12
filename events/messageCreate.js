@@ -2,9 +2,10 @@ const { Events } = require('discord.js');
 const MindsDB = require('mindsdb-js-sdk');
 const { setTimeout } = require("timers/promises");
 const Grapheme = require('grapheme-splitter');
+const mysql = require('mysql');
 const { Configuration, OpenAIApi } = require("openai");
 
-const { MINDSDB_USERNAME, MINDSDB_PASSWORD, MINDSDB_MODEL, CONTEXT_DEPTH, OPENAI_API_KEY, LOWERCASE_WORDS, UPPERCASE_WORDS } = require('../config.json');
+const { MINDSDB_USERNAME, MINDSDB_PASSWORD, MINDSDB_MODEL, CONTEXT_DEPTH, OPENAI_API_KEY, LOWERCASE_WORDS, UPPERCASE_WORDS, TEXT_MODIFIERS } = require('../config.json');
 
 module.exports = {
 	name: Events.MessageCreate,
@@ -48,6 +49,7 @@ module.exports = {
                 }
 
                 chatlog = chatlog.concat(`${value.author.username}:${value.cleanContent} ${attachmentUrl}\n`);
+                attachmentUrl = '';
 
             }
                                 
@@ -78,8 +80,9 @@ module.exports = {
                 textModifier = '(respond back with only relevant emojis)';
             }
 
-            if(getRandom(200)){
-
+            else if(getRandom(200)){
+                
+                textModifier = TEXT_MODIFIERS[Math.floor(Math.random() * (TEXT_MODIFIERS.length-1))];
             }
 
             constructQuery();
@@ -92,6 +95,7 @@ module.exports = {
 
             if (botResponse.includes('###DALL-E###')){
 
+                textModifier = '';
                 
                 const response = await openai.createImage({
                     prompt: message.cleanContent.replace('@Astolfo','').replace('@',''),
@@ -184,9 +188,11 @@ module.exports = {
 
         function constructQuery(){
 
+            chatlog = chatlog.replace(/"/g,'');
+
             query = 
             `SELECT response from ${MINDSDB_MODEL}
-            WHERE chatlog = "${chatlog} ${textModifier}"`;
+            WHERE chatlog = "${mysql.escape(chatlog)} ${mysql.escape(textModifier)}"`;
             query = query.replace(/'/g, '');
 
         }
