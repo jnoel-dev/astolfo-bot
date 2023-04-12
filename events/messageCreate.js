@@ -1,10 +1,9 @@
-const { Events, AttachmentBuilder } = require('discord.js');
+const { Events } = require('discord.js');
 const MindsDB = require('mindsdb-js-sdk');
 const { setTimeout } = require("timers/promises");
 const Grapheme = require('grapheme-splitter');
 const mysql = require('mysql');
 const { Configuration, OpenAIApi } = require("openai");
-const fetch = require("node-fetch");
 const fs = require('fs');
 const request = require('request');
 
