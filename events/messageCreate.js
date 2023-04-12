@@ -1,9 +1,13 @@
-const { Events } = require('discord.js');
+const { Events, AttachmentBuilder } = require('discord.js');
 const MindsDB = require('mindsdb-js-sdk');
 const { setTimeout } = require("timers/promises");
 const Grapheme = require('grapheme-splitter');
 const mysql = require('mysql');
 const { Configuration, OpenAIApi } = require("openai");
+const fetch = require("node-fetch");
+const fs = require('fs');
+const request = require('request');
+
 
 const { MINDSDB_USERNAME, MINDSDB_PASSWORD, MINDSDB_MODEL, CONTEXT_DEPTH, OPENAI_API_KEY, LOWERCASE_WORDS, UPPERCASE_WORDS, TEXT_MODIFIERS } = require('../config.json');
 
@@ -15,6 +19,8 @@ module.exports = {
         let chatlog = '';
         let textModifier = '';
         let query = '';
+
+ 
 
         for (word in LOWERCASE_WORDS){
             if (message.cleanContent.includes(LOWERCASE_WORDS[word])){
@@ -90,21 +96,72 @@ module.exports = {
             await attemptQuery(true);
             
             if (botResponse.includes('Astolfo:')){
-                botResponse.replace(/Astolfo:/g,'');
+                botResponse = botResponse.replace(/Astolfo:/g,'');
+            }
+            try{
+                if (botResponse.includes('###DALL-E###')){
+
+                    textModifier = '';
+                    botResponse = botResponse.replace('###DALL-E###','');
+                    
+                    
+                    const dalleResponse = await openai.createImage({
+                        prompt: message.cleanContent.replace('@Astolfo','').replace('@',''),
+                        n: 1,
+                        size: "512x512",
+                      });
+
+                    let download = async function(uri, filename, callback){
+                    request.head(uri, function(err, res, body){
+                        console.log('content-type:', res.headers['content-type']);
+                        console.log('content-length:', res.headers['content-length']);
+                    
+                        request(uri).pipe(fs.createWriteStream(filename)).on('close', callback);
+                    });
+                    };
+                    
+                    await download(dalleResponse.data.data[0].url, './images/image.png', async function(){
+                    console.log('done');
+                    parseMentions();
+                    await message.reply(botResponse);
+                    await message.reply({
+                        files: [{
+                            attachment: './images/image.png',
+                            name: 'image.png',
+                            description: 'uwu'
+                        }]
+                        })
+                        .then(console.log)
+                        .catch(console.error);
+                        
+                    });
+                    return;
+                    
+                }
+            } catch(e){
+                catchError(e);
+                return;
             }
 
-            if (botResponse.includes('###DALL-E###')){
+            parseMentions();
 
-                textModifier = '';
-                
-                const response = await openai.createImage({
-                    prompt: message.cleanContent.replace('@Astolfo','').replace('@',''),
-                    n: 1,
-                    size: "512x512",
-                  });
-                  botResponse = response.data.data[0].url;
-            }
+            console.log(botResponse);
+            message.reply(botResponse);
+            
+             
+        }
+        else if (getRandom(25)){
 
+            chatlog = message.cleanContent;
+            textModifier = '(respond back with a single emoji only)';
+            constructQuery();
+            await attemptQuery(false);
+            console.log(botResponse);
+            message.react(botResponse);
+            
+        }
+
+        function parseMentions(){
             if (botResponse.includes('@')){
 
                 let mentionedUsers = botResponse.match(/(@[^\s!]+)/g);
@@ -123,20 +180,6 @@ module.exports = {
                 }
 
             }
-
-            console.log(botResponse);
-            message.reply(botResponse);
-             
-        }
-        else if (getRandom(25)){
-
-            chatlog = message.cleanContent;
-            textModifier = '(respond back with a single emoji only)';
-            constructQuery();
-            await attemptQuery(false);
-            console.log(botResponse);
-            message.react(botResponse);
-            
         }
 
         function isMostlyEmojis(str) {
@@ -208,6 +251,7 @@ module.exports = {
         }
 
         function catchError(error){
+            message.reply({ content: 'You just crashed me 😢 It hurts... 😞', ephemeral: false });
             console.log(error);
             return;
         }

@@ -2,10 +2,12 @@
   "main": "index.js",
   "dependencies": {
     "discord.js": "^14.9.0",
+    "fs": "^0.0.1-security",
     "grapheme-splitter": "^1.0.4",
     "mindsdb-js-sdk": "^2.2.0",
     "mysql": "^2.18.1",
     "node-fetch": "^2.6.9",
-    "openai": "^3.2.1"
+    "openai": "^3.2.1",
+    "request": "^2.88.2"
   }
 }
