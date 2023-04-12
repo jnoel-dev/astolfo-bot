@@ -166,7 +166,7 @@ module.exports = {
                 let mentionedUsers = botResponse.match(/(@[^\s!]+)/g);
                 let mentionedUsersClean = botResponse.match(/(@[^\s!]+)/g);
                 for (user in mentionedUsers){
-                    mentionedUsers[user] = mentionedUsers[user].substring(1,mentionedUsers[user].length-1);
+                    mentionedUsers[user] = mentionedUsers[user].substring(1,mentionedUsers[user].length-2);
                     mentionedUsersClean[user] = mentionedUsersClean[user].replace('@','');
                     let userCache = Array.from(message.client.users.cache);
                     for (index in userCache){
