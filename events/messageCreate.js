@@ -6,20 +6,43 @@ const mysql = require('mysql');
 const { Configuration, OpenAIApi } = require("openai");
 const fs = require('fs');
 const request = require('request');
+const { readFile } = require('fs/promises')
 
 
 const { MINDSDB_USERNAME, MINDSDB_PASSWORD, MINDSDB_MODEL, CONTEXT_DEPTH, OPENAI_API_KEY, LOWERCASE_WORDS, UPPERCASE_WORDS, TEXT_MODIFIERS } = require('../config.json');
 
 module.exports = {
 	name: Events.MessageCreate,
+    memoryIndex: 0,
 	async execute(message,forceResponse) {
         let parsedMessage = message.content.replace(/<@(.*?)>/,"");
         let botResponse = '';
         let chatlog = '';
         let textModifier = '';
         let query = '';
+        let pastlog = '';
+       
+        this.memoryIndex = await countFileLines('./memories/memories.txt') + 1;
 
- 
+        async function countFileLines(filePath){
+            return new Promise((resolve, reject) => {
+            let lineCount = 0;
+            fs.createReadStream(filePath)
+              .on("data", (buffer) => {
+                let idx = -1;
+                lineCount--; // Because the loop will run once for idx=-1
+                do {
+                  idx = buffer.indexOf(10, idx+1);
+                  lineCount++;
+                } while (idx !== -1);
+              }).on("end", () => {
+                resolve(lineCount);
+              }).on("error", reject);
+            });
+          };
+
+
+      
 
         for (word in LOWERCASE_WORDS){
             if (message.cleanContent.includes(LOWERCASE_WORDS[word])){
@@ -37,13 +60,16 @@ module.exports = {
             }
         }
 
+
+        
         await message.channel.messages.fetch({ limit: CONTEXT_DEPTH }).then(messages => {
+
 
             messages = Array.from(messages);
             messages = new Map([...messages].reverse());
             
             let attachmentUrl = '';
-
+    
             for (let [key, value] of messages){
                 
                 if (value.attachments.size > 0){
@@ -52,10 +78,10 @@ module.exports = {
                         attachmentUrl = value.attachments.entries().next().value[1].url
                     }
                 }
-
+    
                 chatlog = chatlog.concat(`${value.author.username}:${value.cleanContent} ${attachmentUrl}\n`);
                 attachmentUrl = '';
-
+    
             }
                                 
             })
@@ -66,7 +92,15 @@ module.exports = {
         if (message.content.includes("@here") || message.content.includes("@everyone")) return false;
 
         if (message.mentions.has(message.client.user.id) || getRandom(200) || forceResponse) {
-            
+
+            if (await isFileEmpty('./memories/names.txt') && await isFileEmpty('./memories/memories.txt')){
+                pastlog = '(log is empty for now)';
+            }
+            else{
+                pastlog = await readMemories('./memories/names.txt');
+                pastlog = pastlog.concat(await readMemories('./memories/memories.txt'));
+            }
+          
             const configuration = new Configuration({
             apiKey: OPENAI_API_KEY,
             });
@@ -101,11 +135,12 @@ module.exports = {
                 if (botResponse.includes('###DALL-E###')){
 
                     textModifier = '';
-                    botResponse = botResponse.replace('###DALL-E###','');
+                    parsedValues = botResponse.split('###DALL-E###');
+                    botResponse = parsedValues[0];
                     
                     
                     const dalleResponse = await openai.createImage({
-                        prompt: message.cleanContent.replace('@Astolfo','').replace('@',''),
+                        prompt: parsedValues[1],
                         n: 1,
                         size: "512x512",
                       });
@@ -142,6 +177,27 @@ module.exports = {
                 return;
             }
 
+            if (botResponse.includes('###LOG###')){
+                let memory = botResponse.split('###LOG###')[1];
+
+                if (pastlog == '(log is empty for now)'){
+                    pastlog = '';
+                }
+                if(botResponse.includes('###NAME###')){
+                   
+                    botResponse = botResponse.replace('###NAME###','');
+                    await writeToMemory('./memories/names.txt',memory,true,this.memoryIndex);
+                }
+                else{
+                    await writeToMemory('./memories/memories.txt',memory,false,this.memoryIndex);
+                }
+
+
+                botResponse = botResponse.split('###LOG###')[0];
+        
+
+            }
+
             parseMentions();
 
             console.log(botResponse);
@@ -149,15 +205,55 @@ module.exports = {
             
              
         }
-        else if (getRandom(25)){
+        else if (true){
 
             chatlog = message.cleanContent;
-            textModifier = '(respond back with a single emoji only)';
+            textModifier = '(respond back with a single emoji only, ensure that it is Discord compatible)';
             constructQuery();
             await attemptQuery(false);
             console.log(botResponse);
             message.react(botResponse);
             
+        }
+
+        async function writeToMemory(filepath, memory, isName,index){
+            
+           
+            return new Promise(async (resolve, reject) => {
+
+                // data is the file contents as a single unified string
+                // .split('\n') splits it at each new-line character and all splits are aggregated into an array (i.e. turns it into an array of lines)
+                // .slice(1) returns a view into that array starting at the second entry from the front (i.e. the first element, but slice is zero-indexed so the "first" is really the "second")
+                // .join() takes that array and re-concatenates it into a string
+                if (isName){
+
+                    resolve(fs.appendFile(filepath, `${memory}\n`, 'utf-8', err => {if (err){catchError(err)}}));
+
+                }
+                else{
+
+                    var stringBuffer = await readMemories(filepath);
+                    stringBuffer = stringBuffer.split('\n');
+                    stringBuffer[index-1] = `${memory}\n`;
+                    stringBuffer = stringBuffer.join('\n');
+                    resolve(fs.writeFile(filepath, stringBuffer, function(err, data) { if (err) {catchError(err)} }));
+                }
+
+          
+        });
+        }
+
+        async function isFileEmpty(fileName, ignoreWhitespace=true) {
+            return new Promise((resolve, reject) => {
+                fs.readFile(fileName, (err, data) => {
+                    if( err ) {
+                        reject(err);
+                        return;
+                    }
+        
+                    resolve((!ignoreWhitespace && data.length == 0) || (ignoreWhitespace && !!String(data).match(/^\s*$/)));
+                });
+            });
         }
 
         function parseMentions(){
@@ -179,6 +275,10 @@ module.exports = {
                 }
 
             }
+        }
+        
+        async function readMemories(filepath){
+            return(await readFile(filepath, 'utf8'));
         }
 
         function isMostlyEmojis(str) {
@@ -231,10 +331,12 @@ module.exports = {
         function constructQuery(){
 
             chatlog = chatlog.replace(/"/g,'');
-
+            textModifier = textModifier.replace(/"/g,'');
+            pastlog = pastlog.replace(/"/g,'');
             query = 
             `SELECT response from ${MINDSDB_MODEL}
-            WHERE chatlog = "${mysql.escape(chatlog)} ${mysql.escape(textModifier)}"`;
+            WHERE chatlog = "${chatlog} ${textModifier}"
+            AND pastlog = "${pastlog}"`;
             query = query.replace(/'/g, '');
 
         }
