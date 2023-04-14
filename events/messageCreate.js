@@ -127,6 +127,7 @@ module.exports = {
             constructQuery();
             
             await attemptQuery(true);
+            console.log(botResponse);
             
             if (botResponse.includes('Astolfo:')){
                 botResponse = botResponse.replace(/Astolfo:/g,'');
@@ -173,7 +174,7 @@ module.exports = {
                     
                 }
             } catch(e){
-                catchError(e);
+                catchError(e,'...Probably sent a NSFW request...');
                 return;
             }
 
@@ -201,18 +202,26 @@ module.exports = {
             parseMentions();
 
             console.log(botResponse);
+           
             message.reply(botResponse);
+      
+            
             
              
         }
-        else if (true){
+        else if (getRandom(15)){
 
             chatlog = message.cleanContent;
             textModifier = '(respond back with a single emoji only, ensure that it is Discord compatible)';
             constructQuery();
             await attemptQuery(false);
             console.log(botResponse);
-            message.react(botResponse);
+            try{
+                message.react(botResponse);
+            } catch(e){
+                catchError(e)
+            }
+            
             
         }
 
@@ -304,7 +313,7 @@ module.exports = {
         }
 
         async function attemptQuery(sendTyping){
-            console.log(query);
+            //console.log(query);
             try {
                 if (sendTyping){
                     await message.channel.sendTyping();
@@ -351,8 +360,8 @@ module.exports = {
             }
         }
 
-        function catchError(error){
-            message.reply({ content: 'You just crashed me 😢 It hurts... 😞', ephemeral: false });
+        function catchError(error,errMes = ''){
+            message.reply({ content: `You just crashed me 😢 It hurts... 😞 ${errMes}`, ephemeral: false });
             console.log(error);
             return;
         }
