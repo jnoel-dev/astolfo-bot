@@ -1,6 +1,7 @@
 package-lock.json
 config.json
-memories/memories.txt
-memories/names.txt
+memories/
+images/
 response_identifiers.json
 text_modifiers.json
+finishhim_config.json
