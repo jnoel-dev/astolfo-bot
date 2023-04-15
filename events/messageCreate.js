@@ -2,18 +2,19 @@ const { Events } = require('discord.js');
 const MindsDB = require('mindsdb-js-sdk');
 const { setTimeout } = require("timers/promises");
 const Grapheme = require('grapheme-splitter');
-const mysql = require('mysql');
 const { Configuration, OpenAIApi } = require("openai");
 const fs = require('fs');
 const request = require('request');
 const { readFile } = require('fs/promises')
 
+const { MINDSDB_USERNAME, MINDSDB_PASSWORD, MINDSDB_MODEL, CONTEXT_DEPTH, OPENAI_API_KEY, LOWERCASE_WORDS, UPPERCASE_WORDS, MEMORY_DEPTH, MEMORY_LOG_PATH, NAME_LOG_PATH} = require('../config.json');
+const { USER_RESPONSE_MODIFIERS, EMOJI_RESPONSE, EMPTY_LOG, REACT_RESPONSE} = require('../text_modifiers.json');
+const { LOG_RESPONSE, NAME_RESPONSE, DALLE_RESPONSE} = require('../response_identifiers.json');
 
-const { MINDSDB_USERNAME, MINDSDB_PASSWORD, MINDSDB_MODEL, CONTEXT_DEPTH, OPENAI_API_KEY, LOWERCASE_WORDS, UPPERCASE_WORDS, TEXT_MODIFIERS } = require('../config.json');
-
+  
 module.exports = {
 	name: Events.MessageCreate,
-    memoryIndex: 0,
+    memoryIndex: -1,
 	async execute(message,forceResponse) {
         let parsedMessage = message.content.replace(/<@(.*?)>/,"");
         let botResponse = '';
@@ -22,38 +23,25 @@ module.exports = {
         let query = '';
         let pastlog = '';
        
-        this.memoryIndex = await countFileLines('./memories/memories.txt') + 1;
 
-        async function countFileLines(filePath){
-            return new Promise((resolve, reject) => {
-            let lineCount = 0;
-            fs.createReadStream(filePath)
-              .on("data", (buffer) => {
-                let idx = -1;
-                lineCount--; // Because the loop will run once for idx=-1
-                do {
-                  idx = buffer.indexOf(10, idx+1);
-                  lineCount++;
-                } while (idx !== -1);
-              }).on("end", () => {
-                resolve(lineCount);
-              }).on("error", reject);
-            });
-          };
+
 
 
       
 
         for (word in LOWERCASE_WORDS){
-            if (message.cleanContent.includes(LOWERCASE_WORDS[word])){
+           
+           //let testt = regex.test(message.cleanContent.concat(' '));
+           if (new RegExp(LOWERCASE_WORDS[word] + "[!.,\\s]", "g").test(message.cleanContent.concat(' '))){
                 await message.channel.sendTyping();
                 await setTimeout(2000);
                 message.channel.send("*"+LOWERCASE_WORDS[word].charAt(0).toLowerCase() + LOWERCASE_WORDS[word].slice(1));
             }
+
         }
 
         for (word in UPPERCASE_WORDS){
-            if (message.cleanContent.includes(UPPERCASE_WORDS[word])){
+            if (new RegExp(UPPERCASE_WORDS[word] + "[!.,\\s]", "g").test(message.cleanContent.concat(' '))){
                 await message.channel.sendTyping();
                 await setTimeout(2000);
                 message.channel.send("*"+UPPERCASE_WORDS[word].charAt(0).toUpperCase() + UPPERCASE_WORDS[word].slice(1));
@@ -62,30 +50,7 @@ module.exports = {
 
 
         
-        await message.channel.messages.fetch({ limit: CONTEXT_DEPTH }).then(messages => {
 
-
-            messages = Array.from(messages);
-            messages = new Map([...messages].reverse());
-            
-            let attachmentUrl = '';
-    
-            for (let [key, value] of messages){
-                
-                if (value.attachments.size > 0){
-                    let test = value.attachments.entries().next().value[1].url;
-                    if (value.attachments.entries().next().value[1].url != null){
-                        attachmentUrl = value.attachments.entries().next().value[1].url
-                    }
-                }
-    
-                chatlog = chatlog.concat(`${value.author.username}:${value.cleanContent} ${attachmentUrl}\n`);
-                attachmentUrl = '';
-    
-            }
-                                
-            })
-            .catch(console.error);
 
         if (message.author.bot) return false;
 
@@ -93,12 +58,44 @@ module.exports = {
 
         if (message.mentions.has(message.client.user.id) || getRandom(200) || forceResponse) {
 
-            if (await isFileEmpty('./memories/names.txt') && await isFileEmpty('./memories/memories.txt')){
-                pastlog = '(log is empty for now)';
+            if (this.memoryIndex == -1){
+                this.memoryIndex = await countFileLines(MEMORY_LOG_PATH);
+            }
+            if (this.memoryIndex > MEMORY_DEPTH - 1){
+                this.memoryIndex = 0;
+            }
+
+            await message.channel.messages.fetch({ limit: CONTEXT_DEPTH }).then(messages => {
+
+
+                messages = Array.from(messages);
+                messages = new Map([...messages].reverse());
+                
+                let attachmentUrl = '';
+        
+                for (let [key, value] of messages){
+                    
+                    if (value.attachments.size > 0){
+                        let test = value.attachments.entries().next().value[1].url;
+                        if (value.attachments.entries().next().value[1].url != null){
+                            attachmentUrl = value.attachments.entries().next().value[1].url
+                        }
+                    }
+        
+                    chatlog = chatlog.concat(`${value.author.username}:${value.cleanContent} ${attachmentUrl}\n`);
+                    attachmentUrl = '';
+        
+                }
+                                    
+                })
+                .catch(console.error);
+
+            if (await isFileEmpty(NAME_LOG_PATH) && await isFileEmpty(MEMORY_LOG_PATH)){
+                pastlog = EMPTY_LOG;
             }
             else{
-                pastlog = await readMemories('./memories/names.txt');
-                pastlog = pastlog.concat(await readMemories('./memories/memories.txt'));
+                pastlog = await readMemories(NAME_LOG_PATH);
+                pastlog = pastlog.concat(await readMemories(MEMORY_LOG_PATH));
             }
           
             const configuration = new Configuration({
@@ -116,12 +113,12 @@ module.exports = {
 
             if (isMostlyEmojis(parsedMessage)){
                 chatlog = message.cleanContent;
-                textModifier = '(respond back with only relevant emojis)';
+                textModifier = EMOJI_RESPONSE;
             }
 
             else if(getRandom(200)){
                 
-                textModifier = TEXT_MODIFIERS[Math.floor(Math.random() * (TEXT_MODIFIERS.length-1))];
+                textModifier = USER_RESPONSE_MODIFIERS[Math.floor(Math.random() * (USER_RESPONSE_MODIFIERS.length-1))];
             }
 
             constructQuery();
@@ -133,17 +130,18 @@ module.exports = {
                 botResponse = botResponse.replace(/Astolfo:/g,'');
             }
             try{
-                if (botResponse.includes('###DALL-E###')){
+                if (botResponse.includes(DALLE_RESPONSE)){
 
                     textModifier = '';
-                    parsedValues = botResponse.split('###DALL-E###');
+                    parsedValues = botResponse.split(DALLE_RESPONSE);
                     botResponse = parsedValues[0];
                     
                     
                     const dalleResponse = await openai.createImage({
                         prompt: parsedValues[1],
                         n: 1,
-                        size: "512x512",
+                        size: "512x512"
+        
                       });
 
                     let download = async function(uri, filename, callback){
@@ -178,23 +176,24 @@ module.exports = {
                 return;
             }
 
-            if (botResponse.includes('###LOG###')){
-                let memory = botResponse.split('###LOG###')[1];
+            if (botResponse.includes(LOG_RESPONSE)){
+                let memory = botResponse.split(LOG_RESPONSE)[1];
 
-                if (pastlog == '(log is empty for now)'){
+                if (pastlog == EMPTY_LOG){
                     pastlog = '';
                 }
-                if(botResponse.includes('###NAME###')){
+                if(botResponse.includes(NAME_RESPONSE)){
                    
-                    botResponse = botResponse.replace('###NAME###','');
-                    await writeToMemory('./memories/names.txt',memory,true,this.memoryIndex);
+                    botResponse = botResponse.replace(NAME_RESPONSE,'');
+                    await writeToMemory(NAME_LOG_PATH,memory,true,this.memoryIndex);
                 }
                 else{
-                    await writeToMemory('./memories/memories.txt',memory,false,this.memoryIndex);
+                    await writeToMemory(MEMORY_LOG_PATH,memory,false,this.memoryIndex);
+                    this.memoryIndex++;
                 }
 
 
-                botResponse = botResponse.split('###LOG###')[0];
+                botResponse = botResponse.split(LOG_RESPONSE)[0];
         
 
             }
@@ -212,7 +211,7 @@ module.exports = {
         else if (getRandom(15)){
 
             chatlog = message.cleanContent;
-            textModifier = '(respond back with a single emoji only, ensure that it is Discord compatible)';
+            textModifier = REACT_RESPONSE;
             constructQuery();
             await attemptQuery(false);
             console.log(botResponse);
@@ -241,9 +240,17 @@ module.exports = {
                 }
                 else{
 
+                    
                     var stringBuffer = await readMemories(filepath);
                     stringBuffer = stringBuffer.split('\n');
-                    stringBuffer[index-1] = `${memory}\n`;
+                    if (stringBuffer[index] == ''){
+                        stringBuffer[index] = `${memory}\n`;
+                    }
+                    else{
+                        
+                        stringBuffer[index] = `${memory}`;
+                    }
+                    
                     stringBuffer = stringBuffer.join('\n');
                     resolve(fs.writeFile(filepath, stringBuffer, function(err, data) { if (err) {catchError(err)} }));
                 }
@@ -366,5 +373,25 @@ module.exports = {
             return;
         }
 
+        async function countFileLines(filePath){
+            return new Promise((resolve, reject) => {
+            let lineCount = 0;
+            fs.createReadStream(filePath)
+              .on("data", (buffer) => {
+                let idx = -1;
+                lineCount--; // Because the loop will run once for idx=-1
+                do {
+                  idx = buffer.indexOf(10, idx+1);
+                  lineCount++;
+                } while (idx !== -1);
+              }).on("end", () => {
+                resolve(lineCount);
+              }).on("error", reject);
+            });
+          }
+
 	},
+
+    
 };
+

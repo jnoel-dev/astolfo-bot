@@ -2,3 +2,5 @@ package-lock.json
 config.json
 memories/memories.txt
 memories/names.txt
+response_identifiers.json
+text_modifiers.json
