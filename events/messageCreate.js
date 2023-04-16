@@ -15,7 +15,10 @@ const { LOG_RESPONSE, NAME_RESPONSE, DALLE_RESPONSE} = require('../response_iden
 module.exports = {
 	name: Events.MessageCreate,
     memoryIndex: -1,
-	async execute(message,forceResponse) {
+	async execute(message,forceResponse,interaction) {
+
+        
+
         let parsedMessage = message.content.replace(/<@(.*?)>/,"");
         let botResponse = '';
         let chatlog = '';
@@ -103,7 +106,7 @@ module.exports = {
             });
             const openai = new OpenAIApi(configuration);
 
-            await message.channel.sendTyping();
+            
 
             if (parsedMessage == ' 🫂'){
                 await setTimeout(2000);
@@ -136,7 +139,7 @@ module.exports = {
                     parsedValues = botResponse.split(DALLE_RESPONSE);
                     botResponse = parsedValues[0];
                     
-                    
+                    await message.channel.sendTyping();
                     const dalleResponse = await openai.createImage({
                         prompt: parsedValues[1],
                         n: 1,
@@ -160,12 +163,8 @@ module.exports = {
                     await message.reply({
                         files: [{
                             attachment: './images/image.png',
-                            name: 'image.png',
-                            description: 'uwu'
                         }]
-                        })
-                        .then(console.log)
-                        .catch(console.error);
+                        });
                         
                     });
                     return;
