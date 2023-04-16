@@ -18,6 +18,7 @@ module.exports = {
 				
 	async execute(interaction) {
 
+		await interaction.deferReply({ ephemeral: true });
         await interaction.channel.sendTyping();
         await setTimeout(2000);
 
@@ -27,5 +28,6 @@ module.exports = {
 				attachment: interaction.options.getAttachment('image').attachment
 			}]
 			});
+		await interaction.editReply('Done!',{ ephemeral: true });
 	},
 };
